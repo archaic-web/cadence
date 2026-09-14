@@ -1,3 +1,4 @@
+import { Buffer } from "node:buffer";
 // This test-only dependency stays outside the application import graph.
 // deno-lint-ignore no-import-prefix
 import { chromium } from "npm:playwright@1.62.1";
