@@ -87,3 +87,20 @@ werden.
 Vor einer Freigabe zusätzlich manuell prüfen: erfolgreicher Import, verweigerter Speicherzugriff,
 unterbrochene Aktualisierung, neue Version bei offener Lektion und Installation auf GrapheneOS.
 Diese Fälle sind noch nicht automatisiert abgedeckt.
+
+## GitHub Actions
+
+`.github/workflows/verify.yml` führt bei Pushes, Pull Requests und manuellem Start die
+Deno-Prüfungen sowie den Chromium-Browsertest aus. Getestet wird die fertig gebaute Anwendung aus
+`dist/`; der Server muss vor Testbeginn erreichbar sein. Ein Testfehler lässt den Lauf fehlschlagen.
+
+Der Lauf installiert Deno 2.9.6 und Playwright 1.62.1 samt Chromium und Linux-Abhängigkeiten. Er
+benötigt nur lesenden Repository-Zugriff und keine Projekt-Secrets. Screenshots, Serverprotokoll und
+Playwright-Trace werden als `browser-diagnostics` für 14 Tage aufgehoben. Der Browsertest prüft
+zusätzlich einen erfolgreichen Import einschließlich Neuladen. Lokale Testergebnisse liegen unter
+`test-results/`.
+
+Ein grüner Lauf bestätigt die automatisierten Prüfungen auf Chromium unter Ubuntu. Installation auf
+einem echten GrapheneOS-Gerät sowie die oben genannten noch nicht automatisierten Fehler- und
+Aktualisierungsfälle bleiben separate Prüfungen. Der aktuelle Status ist im Actions-Tab sichtbar;
+die frühere lokale Browserblockade allein ist kein Testergebnis des Workflows.
