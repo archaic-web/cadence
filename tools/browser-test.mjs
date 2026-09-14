@@ -1,12 +1,14 @@
 import { Buffer } from "node:buffer";
 // This test-only dependency stays outside the application import graph.
 // deno-lint-ignore no-import-prefix
-import { chromium } from "npm:playwright@1.62.1";
+import { chromium, webkit } from "npm:playwright@1.62.1";
 
 // Run against `deno task serve` in a second terminal.
-const browser = await chromium.launch({ headless: true, channel: "chromium" });
+const browserName = Deno.env.get("BROWSER") ?? "chromium";
+if (!["chromium", "webkit"].includes(browserName)) throw new Error("Unknown browser");
+const browser = await (browserName === "webkit" ? webkit : chromium).launch({ headless: true });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
-await Deno.mkdir("test-results", { recursive: true });
+await Deno.mkdir(`test-results/${browserName}`, { recursive: true });
 context.setDefaultTimeout(15_000);
 context.setDefaultNavigationTimeout(30_000);
 await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
@@ -51,7 +53,7 @@ try {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Fortschritt sichern", exact: true }).click();
   const download = await downloadPromise;
-  const backupPath = "test-results/progress.json";
+  const backupPath = `test-results/${browserName}/progress.json`;
   await download.saveAs(backupPath);
   const backup = JSON.parse(await Deno.readTextFile(backupPath));
   assert(backup.completed.dreiklang === 5, "Export did not contain the completed lesson");
@@ -91,18 +93,20 @@ try {
   await page.reload();
   await page.getByRole("heading", { name: "1 von 3 Lektionen abgeschlossen" }).waitFor();
   await page.getByRole("link", { name: "Lernen", exact: true }).click();
-  await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
+  await page.screenshot({ path: `test-results/${browserName}/mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
+  await page.screenshot({ path: `test-results/${browserName}/desktop.png`, fullPage: true });
   assert(errors.length === 0, errors.join("\n"));
   console.log(
     "Passed: lesson completion, restart, offline restart, history, export, invalid import, single writer, mobile layout, no browser errors.",
   );
 } catch (error) {
-  await page.screenshot({ path: "test-results/failure.png", fullPage: true }).catch(() => {});
-  await Deno.writeTextFile("test-results/error.txt", String(error));
+  await page.screenshot({ path: `test-results/${browserName}/failure.png`, fullPage: true }).catch(
+    () => {},
+  );
+  await Deno.writeTextFile(`test-results/${browserName}/error.txt`, String(error));
   throw error;
 } finally {
-  await context.tracing.stop({ path: "test-results/trace.zip" }).catch(() => {});
+  await context.tracing.stop({ path: `test-results/${browserName}/trace.zip` }).catch(() => {});
   await browser.close();
 }
