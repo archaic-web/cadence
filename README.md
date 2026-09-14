@@ -110,3 +110,24 @@ Erster erfolgreicher CI-Lauf:
 [Verify Cadence, 14.09.2026](https://github.com/archaic-web/cadence/actions/runs/34869505751),
 Commit `263dc1200ba50044556e2f1292a23945125a49db`. Alle Schritte einschließlich Chromium-Browsertest
 und Diagnose-Upload waren erfolgreich.
+
+## Testbereitstellung auf GitHub Pages
+
+Der Workflow testet denselben Build in Chromium und WebKit. Nur wenn alle Prüfungen erfolgreich
+sind, wird `dist/` aus `initial-chord-lessons` als Pages-Artefakt veröffentlicht. Pull Requests
+testen ausschließlich; sie veröffentlichen nicht. Auch ein manueller Workflow-Start kann diesen
+Branch bereitstellen.
+
+Einmalig muss unter **Settings → Pages → Build and deployment → Source** die Option **GitHub
+Actions** aktiviert sein. Die veröffentlichte Adresse steht im erfolgreichen Deployment des
+Environments `github-pages`. GitHub Pages stellt die Anwendung öffentlich bereit; Lernfortschritt
+bleibt im jeweiligen Browser gespeichert.
+
+Im Fußbereich steht `Version <Commit>`. Die WebKit-Prüfung ergänzt Chromium, ersetzt aber keinen
+Test auf dem iPad. Öffne die Adresse zuerst in Safari und füge sie anschließend über „Zum
+Home-Bildschirm“ als Web-App hinzu. Prüfe insbesondere Quer-/Hochformat, Schließen und Wiederöffnen
+sowie einen Offline-Neustart nach „Offline bereit“.
+
+Lokal: `BROWSER=webkit deno task test:browser` (vorher
+`deno run -A npm:playwright@1.62.1 install --with-deps chromium webkit`). Die Browserdiagnosen
+liegen getrennt unter `test-results/chromium/` und `test-results/webkit/`.
