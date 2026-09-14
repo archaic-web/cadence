@@ -65,8 +65,9 @@ Schritt. Nach Neuladen geht es mit der nächsten unbeantworteten Aufgabe weiter.
 
 Der Browsertest ist vorbereitet, konnte in der Entwicklungsumgebung aber nicht ausgeführt werden:
 Der verfügbare Browser blockiert die lokale Adresse; der alternative Browser-Download lieferte kein
-gültiges Archiv. Offline-Verhalten, Installation, mobile Darstellung und die tatsächlichen
-IndexedDB-Abläufe sind deshalb vorerst **implementiert, aber nicht im Browser verifiziert**.
+gültiges Archiv. Die lokale Browserprüfung war dadurch blockiert. Die unten dokumentierte
+GitHub-Actions-Prüfung hat inzwischen den automatisierten Chromium-Ablauf erfolgreich verifiziert;
+die Installation auf GrapheneOS bleibt eine Geräteprüfung.
 
 Für die Browserprüfung in einer normalen Entwicklungsumgebung:
 
@@ -104,3 +105,8 @@ Ein grüner Lauf bestätigt die automatisierten Prüfungen auf Chromium unter Ub
 einem echten GrapheneOS-Gerät sowie die oben genannten noch nicht automatisierten Fehler- und
 Aktualisierungsfälle bleiben separate Prüfungen. Der aktuelle Status ist im Actions-Tab sichtbar;
 die frühere lokale Browserblockade allein ist kein Testergebnis des Workflows.
+
+Erster erfolgreicher CI-Lauf:
+[Verify Cadence, 14.09.2026](https://github.com/archaic-web/cadence/actions/runs/34869505751),
+Commit `263dc1200ba50044556e2f1292a23945125a49db`. Alle Schritte einschließlich Chromium-Browsertest
+und Diagnose-Upload waren erfolgreich.
