@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "strict": true,
+    "lib": [
+      "dom",
+      "dom.iterable",
+      "deno.ns"
+    ]
+  },
+  "tasks": {
+    "check": "deno fmt --check && deno lint && deno check src/main.ts tools/*.ts tests/*.ts",
+    "test": "deno test tests/",
+    "build": "deno check src/main.ts && deno run --allow-read --allow-write --allow-run tools/build.ts",
+    "serve": "deno task build && deno run --allow-net=127.0.0.1:8000 --allow-read=dist tools/serve.ts",
+    "test:browser": "deno run -A tools/browser-test.mjs"
+  },
+  "fmt": {
+    "lineWidth": 100
+  },
+  "exclude": [
+    "dist/"
+  ]
+}
