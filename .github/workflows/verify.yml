@@ -1,4 +1,4 @@
-name: Verify Cadence
+name: Verify and deploy Cadence
 
 on:
   push:
@@ -14,7 +14,7 @@ concurrency:
 
 jobs:
   verify:
-    name: Deno and Chromium
+    name: Deno, Chromium and WebKit
     runs-on: ubuntu-24.04
     timeout-minutes: 15
     steps:
@@ -32,9 +32,9 @@ jobs:
         run: deno task test
       - name: Build browser release
         run: deno task build
-      - name: Install Chromium and system dependencies
-        run: deno run -A npm:playwright@1.62.1 install --with-deps chromium
-      - name: Test the built application in Chromium
+      - name: Install browsers and system dependencies
+        run: deno run -A npm:playwright@1.62.1 install --with-deps chromium webkit
+      - name: Test the built application in Chromium and WebKit
         shell: bash
         run: |
           set -euo pipefail
@@ -58,7 +58,8 @@ jobs:
             cat test-results/server.log
             exit 1
           fi
-          deno task test:browser
+          BROWSER=chromium deno task test:browser
+          BROWSER=webkit deno task test:browser
       - name: Upload browser diagnostics
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
@@ -67,3 +68,31 @@ jobs:
           path: test-results/
           if-no-files-found: ignore
           retention-days: 14
+
+      - name: Package verified site
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/initial-chord-lessons'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: dist/
+
+  deploy:
+    name: Deploy testing site
+    needs: verify
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/initial-chord-lessons'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - name: Configure Pages
+        uses: actions/configure-pages@v5
+      - name: Deploy verified artifact
+        id: deployment
+        uses: actions/deploy-pages@v4
