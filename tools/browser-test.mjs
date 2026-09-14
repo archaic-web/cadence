@@ -6,6 +6,10 @@ import { chromium } from "npm:playwright@1.62.1";
 // Run against `deno task serve` in a second terminal.
 const browser = await chromium.launch({ headless: true, channel: "chromium" });
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+await Deno.mkdir("test-results", { recursive: true });
+context.setDefaultTimeout(15_000);
+context.setDefaultNavigationTimeout(30_000);
+await context.tracing.start({ screenshots: true, snapshots: true, sources: true });
 const page = await context.newPage();
 const errors = [];
 page.on("pageerror", (error) => errors.push(error.message));
@@ -16,7 +20,11 @@ try {
   await page.goto("http://127.0.0.1:8000/");
   await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
   await page.getByText("Offline bereit", { exact: true }).waitFor();
-  await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await page.waitForFunction(() => navigator.serviceWorker.controller !== null).catch(async () => {
+    // Initial activation can reload the document while the condition is evaluated.
+    await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  });
+  await page.reload();
   // Wait for the initial service-worker takeover/reload to settle.
   await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
   assert(
@@ -43,6 +51,10 @@ try {
   const downloadPromise = page.waitForEvent("download");
   await page.getByRole("button", { name: "Fortschritt sichern", exact: true }).click();
   const download = await downloadPromise;
+  const backupPath = "test-results/progress.json";
+  await download.saveAs(backupPath);
+  const backup = JSON.parse(await Deno.readTextFile(backupPath));
+  assert(backup.completed.dreiklang === 5, "Export did not contain the completed lesson");
   assert(download.suggestedFilename() === "cadence-fortschritt.json", "Wrong export filename");
   await page.goBack();
   await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
@@ -56,6 +68,19 @@ try {
     { exact: true },
   ).waitFor();
   await second.close();
+  page.once("dialog", (dialog) => dialog.accept());
+  await page.locator("input[type=file]").setInputFiles({
+    name: "restore.json",
+    mimeType: "application/json",
+    buffer: Buffer.from(JSON.stringify({ ...backup, completed: { dreiklang: 3 } })),
+  });
+  await page.getByText("Drei Töne, ein Akkord: 3 von 5 beim ersten Versuch richtig", {
+    exact: true,
+  }).waitFor();
+  await page.reload();
+  await page.getByText("Drei Töne, ein Akkord: 3 von 5 beim ersten Versuch richtig", {
+    exact: true,
+  }).waitFor();
   await page.locator("input[type=file]").setInputFiles({
     name: "invalid.json",
     mimeType: "application/json",
@@ -66,13 +91,18 @@ try {
   await page.reload();
   await page.getByRole("heading", { name: "1 von 3 Lektionen abgeschlossen" }).waitFor();
   await page.getByRole("link", { name: "Lernen", exact: true }).click();
-  await page.screenshot({ path: "/tmp/cadence-mobile.png", fullPage: true });
+  await page.screenshot({ path: "test-results/mobile.png", fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
-  await page.screenshot({ path: "/tmp/cadence-desktop.png", fullPage: true });
+  await page.screenshot({ path: "test-results/desktop.png", fullPage: true });
   assert(errors.length === 0, errors.join("\n"));
   console.log(
     "Passed: lesson completion, restart, offline restart, history, export, invalid import, single writer, mobile layout, no browser errors.",
   );
+} catch (error) {
+  await page.screenshot({ path: "test-results/failure.png", fullPage: true }).catch(() => {});
+  await Deno.writeTextFile("test-results/error.txt", String(error));
+  throw error;
 } finally {
+  await context.tracing.stop({ path: "test-results/trace.zip" }).catch(() => {});
   await browser.close();
 }
