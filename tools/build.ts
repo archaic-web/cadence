@@ -30,6 +30,16 @@ for await (const entry of Deno.readDir("public")) {
     files.push(entry.name);
   }
 }
+const revision = await new Deno.Command("git", { args: ["rev-parse", "--short=12", "HEAD"] })
+  .output();
+if (!revision.success) throw new Error("Cannot determine build revision");
+const buildId = new TextDecoder().decode(revision.stdout).trim();
+if (!/^[0-9a-f]{7,40}$/.test(buildId)) throw new Error("Invalid build revision");
+const html = await Deno.readTextFile("dist/index.html");
+await Deno.writeTextFile(
+  "dist/index.html",
+  html.replace('<span id="build">Entwicklung</span>', `<span id="build">Version ${buildId}</span>`),
+);
 files.sort();
 const source = await Promise.all(files.map((f) => Deno.readTextFile(`dist/${f}`)));
 const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(source.join("\n")));
