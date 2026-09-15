@@ -315,3 +315,62 @@ footer {
     gap: 18px;
   }
 }
+
+/* Only the exercise panel moves; navigation and headings remain stationary. */
+:root {
+  view-transition-name: none;
+}
+.panel {
+  view-transition-name: exercise;
+}
+::view-transition {
+  pointer-events: none;
+}
+::view-transition-old(exercise) {
+  animation: exercise-out 160ms ease-in both;
+}
+::view-transition-new(exercise) {
+  animation: exercise-in 200ms ease-out both;
+}
+@keyframes exercise-out {
+  to {
+    opacity: 0;
+    transform: translateX(-8px);
+  }
+}
+@keyframes exercise-in {
+  from {
+    opacity: 0;
+    transform: translateX(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+.feedback {
+  animation: feedback-in 180ms ease-out both;
+}
+@keyframes feedback-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.choice {
+  transition: background-color 150ms ease-out, border-color 150ms ease-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .feedback,
+  ::view-transition-old(exercise),
+  ::view-transition-new(exercise) {
+    animation: none;
+  }
+  .choice {
+    transition: none;
+  }
+}
