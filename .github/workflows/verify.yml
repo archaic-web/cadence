@@ -38,26 +38,6 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p test-results
-          deno run --allow-net=127.0.0.1:8000 --allow-read=dist tools/serve.ts > test-results/server.log 2>&1 &
-          server_pid=$!
-          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
-          ready=false
-          for attempt in {1..30}; do
-            if curl --fail --silent http://127.0.0.1:8000/ > /dev/null; then
-              ready=true
-              break
-            fi
-            if ! kill -0 "$server_pid" 2>/dev/null; then
-              cat test-results/server.log
-              exit 1
-            fi
-            sleep 1
-          done
-          if [ "$ready" != true ]; then
-            cat test-results/server.log
-            exit 1
-          fi
           BROWSER=chromium deno task test:browser
           BROWSER=webkit deno task test:browser
       - name: Upload browser diagnostics
