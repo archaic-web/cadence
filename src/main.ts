@@ -76,7 +76,30 @@ async function boot() {
       element("p", description, "lead"),
     );
   }
-  function render() {
+  const reducedMotion = matchMedia("(prefers-reduced-motion: reduce)");
+  let transition: ReturnType<Document["startViewTransition"]> | null = null;
+  let renderVersion = 0;
+  function render(animate = false) {
+    const version = ++renderVersion;
+    transition?.skipTransition();
+    transition = null;
+    if (!animate || reducedMotion.matches || !document.startViewTransition) {
+      renderScreen();
+      return;
+    }
+    const current = document.startViewTransition(() => {
+      // A later navigation supersedes a queued screen update.
+      if (version === renderVersion) renderScreen();
+    });
+    transition = current;
+    void current.finished.catch(() => {}).finally(() => {
+      if (transition === current) transition = null;
+    });
+  }
+  reducedMotion.addEventListener("change", () => {
+    if (reducedMotion.matches) transition?.skipTransition();
+  });
+  function renderScreen() {
     cleanup.abort();
     cleanup = new AbortController();
     root.replaceChildren();
@@ -250,7 +273,7 @@ async function boot() {
                 ),
                 element("p", question.explanation),
               );
-              const nextButton = button("Weiter", () => render());
+              const nextButton = button("Weiter", () => render(true));
               feedback.append(nextButton);
               nextButton.focus();
             }, "choice");
@@ -318,7 +341,7 @@ async function boot() {
       document.title = `${h.textContent} · Cadence`;
     }
   }
-  addEventListener("hashchange", render);
+  addEventListener("hashchange", () => render());
   render();
   offerUpdate();
   if ("serviceWorker" in navigator) {
