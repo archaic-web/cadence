@@ -9,7 +9,10 @@ const browserName = Deno.env.get("BROWSER") ?? "chromium";
 if (!["chromium", "webkit"].includes(browserName)) throw new Error("Unknown browser");
 const browser = await (browserName === "webkit" ? webkit : chromium).launch({ headless: true });
 let server = startServer(8001);
-const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+const context = await browser.newContext({
+  viewport: { width: 390, height: 844 },
+  reducedMotion: "no-preference",
+});
 await Deno.mkdir(`test-results/${browserName}`, { recursive: true });
 context.setDefaultTimeout(15_000);
 context.setDefaultNavigationTimeout(30_000);
@@ -105,6 +108,31 @@ try {
   await page.screenshot({ path: `test-results/${browserName}/mobile.png`, fullPage: true });
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.screenshot({ path: `test-results/${browserName}/desktop.png`, fullPage: true });
+  // Reduced motion must preserve the complete exercise flow without animation.
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.locator('a[href="#lektion/dreiklang"]').click();
+  await page.getByRole("button", { name: "Jetzt üben" }).click();
+  await page.getByRole("button", { name: "Drei", exact: true }).click();
+  await page.getByRole("heading", { name: "Richtig!", exact: true }).waitFor();
+  assert(
+    await page.locator(".feedback").evaluate((el) => getComputedStyle(el).animationName) === "none",
+    "Feedback ignores reduced motion",
+  );
+  await page.getByRole("button", { name: "Weiter", exact: true }).click();
+  await page.getByText("AUFGABE 2 VON 5", { exact: true }).waitFor();
+  await page.emulateMedia({ reducedMotion: "no-preference" });
+  await page.getByRole("button", { name: "C", exact: true }).click();
+  await page.getByRole("button", { name: "Weiter", exact: true }).click();
+  await page.getByRole("link", { name: "Lernen", exact: true }).click();
+  await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
+  // The pending transition must not restore its old lesson after navigation.
+  await page.evaluate(async () => {
+    await Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {})));
+  });
+  assert(
+    await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).isVisible(),
+    "Transition overwrote navigation",
+  );
   assert(errors.length === 0, errors.join("\n"));
   console.log(
     "Passed: lesson completion, restart, offline restart, history, export, invalid import, single writer, mobile layout, no browser errors.",
