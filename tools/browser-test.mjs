@@ -1,12 +1,14 @@
+import { startServer } from "./serve.ts";
 import { Buffer } from "node:buffer";
 // This test-only dependency stays outside the application import graph.
 // deno-lint-ignore no-import-prefix
 import { chromium, webkit } from "npm:playwright@1.62.1";
 
-// Run against `deno task serve` in a second terminal.
+// Own the test server so recovery is tested with the origin actually unavailable.
 const browserName = Deno.env.get("BROWSER") ?? "chromium";
 if (!["chromium", "webkit"].includes(browserName)) throw new Error("Unknown browser");
 const browser = await (browserName === "webkit" ? webkit : chromium).launch({ headless: true });
+let server = startServer(8001);
 const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
 await Deno.mkdir(`test-results/${browserName}`, { recursive: true });
 context.setDefaultTimeout(15_000);
@@ -19,7 +21,7 @@ const assert = (value, message) => {
   if (!value) throw new Error(message);
 };
 try {
-  await page.goto("http://127.0.0.1:8000/");
+  await page.goto("http://127.0.0.1:8001/");
   await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
   await page.getByText("Offline bereit", { exact: true }).waitFor();
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null).catch(async () => {
@@ -39,7 +41,14 @@ try {
   await page.getByRole("heading", { name: "Richtig!", exact: true }).waitFor();
   await page.reload();
   await page.getByText("AUFGABE 2 VON 5", { exact: true }).waitFor();
-  await context.setOffline(true);
+  await server.shutdown();
+  let unreachable = false;
+  try {
+    await fetch("http://127.0.0.1:8001/", { signal: AbortSignal.timeout(2000) });
+  } catch {
+    unreachable = true;
+  }
+  assert(unreachable, "Test origin must be unavailable during the recovery check");
   await page.reload();
   await page.getByText("AUFGABE 2 VON 5", { exact: true }).waitFor();
   for (const answer of ["C", "E", "G", "H"]) {
@@ -62,9 +71,9 @@ try {
   await page.getByRole("heading", { name: "Akkorde verstehen.", exact: true }).waitFor();
   await page.goForward();
   await page.getByRole("heading", { name: "Ein Akkord nach dem anderen.", exact: true }).waitFor();
-  await context.setOffline(false);
+  server = startServer(8001);
   const second = await context.newPage();
-  await second.goto("http://127.0.0.1:8000/");
+  await second.goto("http://127.0.0.1:8001/");
   await second.getByText(
     "Cadence ist bereits in einem anderen Fenster geöffnet. Schließe es und lade diese Seite neu.",
     { exact: true },
@@ -109,4 +118,5 @@ try {
 } finally {
   await context.tracing.stop({ path: `test-results/${browserName}/trace.zip` }).catch(() => {});
   await browser.close();
+  await server.shutdown();
 }
